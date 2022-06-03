@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"protoschema/Container"
@@ -48,13 +49,21 @@ func TestPayloadParse(t *testing.T) {
 		t.Errorf("DataID is 0x00112233445566778899aabbccddeeff")
 	}
 	f, _ := os.Open("tests_examples/0_00112233445566778899aabbccddeeff.json")
-
+	// Schemaの読み込み
 	schema, _ := ioutil.ReadAll(f)
+
 	s := Schema.Schema{}
 	json.Unmarshal([]byte(schema), &s)
-
-	for field := range s.Fields {
-		json.Unmarshal()
+	stp, _ := s.Marshal(container.Payload)
+	for _, ss := range stp {
+		fmt.Println(ss.Name)
+		fmt.Println(ss.Value)
+		fmt.Println(ss.Payload)
 	}
+
+	// goroutin
+	// for field := range s.Fields {
+	// 	field.Unmarshal()
+	// }
 
 }
