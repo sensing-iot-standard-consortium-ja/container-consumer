@@ -38,8 +38,12 @@ func main() {
 		"group.id":          "foo",
 		"auto.offset.reset": "smallest",
 	})
-
+	producer, _ := kafka.NewProducer(&kafka.ConfigMap{
+		"bootstrap.servers": "localhost:9092",
+	})
+	produce_topic := "mb_ktopic"
 	_ = consumer.SubscribeTopics([]string{"mb_ctopic"}, nil)
+
 	defer consumer.Close()
 	run := true
 
@@ -48,7 +52,12 @@ func main() {
 		ev := consumer.Poll(0)
 		switch e := ev.(type) {
 		case *kafka.Message:
-			processContainer(e.Value, schemaCache)
+			jsonBytes := processMotionContainer(e.Value, schemaCache)
+			producer.Produce(&kafka.Message{
+				TopicPartition: kafka.TopicPartition{Topic: &produce_topic, Partition: kafka.PartitionAny},
+				Value:          jsonBytes,
+			}, nil)
+
 		case kafka.Error:
 			fmt.Fprintf(os.Stderr, "%% Error: %v\n", e)
 			run = false
@@ -80,7 +89,7 @@ func (schema *SchemaKey) String() string {
 	return fmt.Sprintf("%d_%s", schema.dataIndex, schema.dataId)
 }
 
-func processContainer(buf []byte, schemaCache sync.Map) {
+func processMotionContainer(buf []byte, schemaCache sync.Map) []byte {
 	// コンテナ・バイト列bufを，コンテナ型に変換
 	fmt.Println("Container:")
 	container := Container.Marshal(buf)
@@ -94,11 +103,18 @@ func processContainer(buf []byte, schemaCache sync.Map) {
 	schema_, _ := schema.(Schema.Schema)
 	structData, _ := schema_.Marshal(container.Payload)
 
+	// for _, ss := range structData {
+	// 	fmt.Println(ss.Name)
+	// 	fmt.Println(ss.Value)
+	// 	fmt.Println(ss.Payload)
+	// }
+
+	item := make(map[string]interface{})
 	for _, ss := range structData {
-		fmt.Println(ss.Name)
-		fmt.Println(ss.Value)
-		fmt.Println(ss.Payload)
+		item[ss.Name] = ss.Value
 	}
-	a, _ := json.Marshal(structData)
+
+	a, _ := json.Marshal(item)
 	fmt.Println(string(a))
+	return a
 }
