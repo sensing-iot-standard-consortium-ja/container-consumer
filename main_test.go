@@ -62,6 +62,9 @@ func TestPayloadParse(t *testing.T) {
 		fmt.Println(ss.Payload)
 	}
 	fmt.Printf("%X\n", container.Payload)
+
+	j, _ := json.Marshal(stp[0])
+	fmt.Println(string(j))
 	// goroutin
 	// for field := range s.Fields {
 	// 	field.Unmarshal()

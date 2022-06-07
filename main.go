@@ -99,5 +99,6 @@ func processContainer(buf []byte, schemaCache sync.Map) {
 		fmt.Println(ss.Value)
 		fmt.Println(ss.Payload)
 	}
-
+	a, _ := json.Marshal(structData)
+	fmt.Println(string(a))
 }

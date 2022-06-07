@@ -30,7 +30,7 @@ func containerStubdata() []byte { // 中身(ペイロード)を作る
 	return buf
 }
 
-func main() {
+func sandbox() {
 	var err error
 	// テスト用のコンテナを作る
 	buf := containerStubdata()
