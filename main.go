@@ -1,98 +1,103 @@
 package main
 
 import (
-	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+
 	"protoschema/Container"
-	"protoschema/Sensors/MPU6050"
-	"protoschema/Sensors/MPU6050Arrays"
+	"protoschema/Schema"
+
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
-//var endian = binary.BigEndian
-var Endian = binary.LittleEndian
+func main() {
+	// Ctrl+Cなどのシグナルで終了するようにする
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs,
+		syscall.SIGKILL,
+		syscall.SIGTERM,
+		syscall.SIGINT,
+		os.Interrupt,
+		syscall.SIGTERM)
+	go func() {
+		sig := <-sigs
+		fmt.Println(sig)
+		os.Exit(0)
+	}()
 
-func containerStubdata() []byte { // 中身(ペイロード)を作る
-	c := MPU6050.NewContainer()
-	p := MPU6050.New()
-	p.AccelX = 0x1122
-	p.AccelY = 0x3344
-	p.AccelZ = 0x5566
-	p.Temp = 0x7788
-	p.GyroX = 0x99AA
-	p.GyroY = 0xBBCC
-	p.GyroZ = 0xDDEE
-	// コンテナから見るとPayloadはバイト列
-	copy(c.Payload, MPU6050.Unmarshal(p))
-	buf := Container.Unmarshal(c)
+	// Consumerを作る
+	consumer, _ := kafka.NewConsumer(&kafka.ConfigMap{
+		"bootstrap.servers": "localhost:9092",
+		"group.id":          "foo",
+		"auto.offset.reset": "smallest",
+	})
 
-	// コンテナから見るとPayloadはバイト列
-	return buf
+	_ = consumer.SubscribeTopics([]string{"mb_ctopic"}, nil)
+	defer consumer.Close()
+	run := true
+
+	schemaCache := sync.Map{}
+	for run == true {
+		ev := consumer.Poll(0)
+		switch e := ev.(type) {
+		case *kafka.Message:
+			processContainer(e.Value, schemaCache)
+		case kafka.Error:
+			fmt.Fprintf(os.Stderr, "%% Error: %v\n", e)
+			run = false
+		default:
+			//fmt.Printf("Ignored %v\n", e)
+		}
+	}
 }
 
-func main() {
-	var err error
-	// テスト用のコンテナを作る
-	buf := containerStubdata()
-	fmt.Printf("Input: %X\n", buf)
-	// ここからテストできる
+func retriveSchema(schemaKey SchemaKey) Schema.Schema {
+	dataIdstr := hex.EncodeToString(schemaKey.dataId)
+	hostname := "http://localhost:30002"
+	url := fmt.Sprintf("%s/registry/repo/%d/%s", hostname, schemaKey.dataIndex, dataIdstr)
+	fmt.Println(url)
+	resp, _ := http.Get(url)
+	schema_define, _ := ioutil.ReadAll(resp.Body)
+	// Schema読み込み
+	schema := Schema.Schema{}
+	json.Unmarshal(schema_define, &schema)
+	return schema
+}
 
+type SchemaKey struct {
+	dataIndex uint8
+	dataId    []byte
+}
+
+func (schema *SchemaKey) String() string {
+	return fmt.Sprintf("%d_%s", schema.dataIndex, schema.dataId)
+}
+
+func processContainer(buf []byte, schemaCache sync.Map) {
 	// コンテナ・バイト列bufを，コンテナ型に変換
-	fmt.Println("MPU6050 Container:")
-	mpu6050Container := Container.Marshal(buf)
-	// コンテナの中身を確認
-	mpu6050Container.Print()
-	// コンテナのペイロードをパース
-	mpu6050Payload := MPU6050.Marshal(mpu6050Container.Payload)
-	// ペイロードの中身を確認
-	mpu6050Payload.Print()
+	fmt.Println("Container:")
+	container := Container.Marshal(buf)
+	// [debug] コンテナの中身を確認
+	// container.Print()
+	dataId := container.Header.DataId
+	dataIndex := container.Header.DataIndex
+	schemaKey := SchemaKey{dataIndex, dataId}
 
-	// コンテナの内容をJSONで表示
-	buf, err = json.MarshalIndent(mpu6050Container, "", "  ")
-	if err != nil {
-		panic(err)
+	schema, _ := schemaCache.LoadOrStore(schemaKey.String(), retriveSchema(schemaKey))
+	schema_, _ := schema.(Schema.Schema)
+	structData, _ := schema_.Marshal(container.Payload)
+
+	for _, ss := range structData {
+		fmt.Println(ss.Name)
+		fmt.Println(ss.Value)
+		fmt.Println(ss.Payload)
 	}
-	fmt.Printf("Container: %v\n", string(buf))
-	// ペイロードの内容をJSONで表示
-	buf, err = json.MarshalIndent(mpu6050Payload, "", "  ")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Payload: %v\n", string(buf))
 
-	// 参考例1：
-	// センサから来たコンテナのMPU6050型のペイロードを，
-	// データの種類ごとに配列にまとめたMPU6050Arrays型に変換する
-
-	// 出力先のコンテナを作る
-	mpu6050ArraysContainer := MPU6050Arrays.NewContainer()
-	mpu6050ArraysPayload := MPU6050Arrays.Marshal(mpu6050ArraysContainer.Payload)
-
-	// 変換の演算を実行
-	fmt.Println("ConvertMPU6050toMPU6050Arrays()")
-	MPU6050Arrays.ConvertMPU6050toMPU6050Arrays(mpu6050Payload, mpu6050ArraysPayload)
-
-	// 出力先のコンテナのペイロードに結果を格納する
-	_ = copy(mpu6050ArraysContainer.Payload, MPU6050Arrays.Unmarshal(mpu6050ArraysPayload))
-
-	// 出力先のコンテナをバイト列に変換して出力する
-	fmt.Println("MPU6050Arrays Container:")
-	mpu6050ArraysContainer.Print()
-	mpu6050ArraysPayload.Print()
-
-	// コンテナの内容をJSONで表示
-	buf, err = json.MarshalIndent(mpu6050ArraysContainer, "", "  ")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Container: %v\n", string(buf))
-	// ペイロードの内容をJSONで表示
-	buf, err = json.MarshalIndent(mpu6050ArraysPayload, "", "  ")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Payload: %v\n", string(buf))
-
-	buf = Container.Unmarshal(mpu6050ArraysContainer)
-	fmt.Printf("Output: %X\n", buf)
 }
