@@ -9,6 +9,7 @@ import (
 	"os"
 	"protoschema/Container"
 	"protoschema/Schema"
+	"sync"
 	"testing"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -123,4 +124,21 @@ func TestContainerToKafkaProduce(t *testing.T) {
 	// Wait for message deliveries before shutting down
 	p.Flush(15 * 1000)
 
+}
+
+func TestSyncMap(t *testing.T) {
+	type Hoge struct {
+		a int
+		b string
+		c []byte
+	}
+	stab := func() Hoge {
+		fmt.Println("called ")
+		return Hoge{1, "piyo", []byte{1, 2, 3}}
+	}
+	testmap := sync.Map{}
+	h, loaded := testmap.LoadOrStore("hoge", stab())
+	fmt.Println(h, loaded)
+	h2, loaded2 := testmap.LoadOrStore("hoge", stab())
+	fmt.Println(h2, loaded2)
 }

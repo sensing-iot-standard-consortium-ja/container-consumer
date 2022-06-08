@@ -52,7 +52,7 @@ func main() {
 		ev := consumer.Poll(0)
 		switch e := ev.(type) {
 		case *kafka.Message:
-			jsonBytes := processMotionContainer(e.Value, schemaCache)
+			jsonBytes := processMotionContainer(e.Value, &schemaCache)
 			producer.Produce(&kafka.Message{
 				TopicPartition: kafka.TopicPartition{Topic: &produce_topic, Partition: kafka.PartitionAny},
 				Value:          jsonBytes,
@@ -89,9 +89,8 @@ func (schema *SchemaKey) String() string {
 	return fmt.Sprintf("%d_%s", schema.dataIndex, schema.dataId)
 }
 
-func processMotionContainer(buf []byte, schemaCache sync.Map) []byte {
+func processMotionContainer(buf []byte, schemaCache *sync.Map) []byte {
 	// コンテナ・バイト列bufを，コンテナ型に変換
-	fmt.Println("Container:")
 	container := Container.Marshal(buf)
 	// [debug] コンテナの中身を確認
 	// container.Print()
@@ -99,7 +98,12 @@ func processMotionContainer(buf []byte, schemaCache sync.Map) []byte {
 	dataIndex := container.Header.DataIndex
 	schemaKey := SchemaKey{dataIndex, dataId}
 
-	schema, _ := schemaCache.LoadOrStore(schemaKey.String(), retriveSchema(schemaKey))
+	schema, ok := schemaCache.Load(schemaKey.String())
+	if !ok {
+		schema := retriveSchema(schemaKey)
+		schemaCache.Store(schemaKey.String(), schema)
+	}
+
 	schema_, _ := schema.(Schema.Schema)
 	structData, _ := schema_.Marshal(container.Payload)
 
