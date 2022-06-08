@@ -17,6 +17,13 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
 func main() {
 	// Ctrl+Cなどのシグナルで終了するようにする
 	sigs := make(chan os.Signal, 1)
@@ -33,17 +40,21 @@ func main() {
 	}()
 
 	// Consumerを作る
+	brokerEndpoint := getEnv("KAFKA_BROKER", "localhost:9092")
 	consumer, _ := kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers": "localhost:9092",
-		"group.id":          "foo",
+		"bootstrap.servers": brokerEndpoint,
+		"group.id":          "hoge",
 		"auto.offset.reset": "smallest",
 	})
 	producer, _ := kafka.NewProducer(&kafka.ConfigMap{
-		"bootstrap.servers": "localhost:9092",
+		"bootstrap.servers": brokerEndpoint,
 	})
-	produce_topic := "mb_ktopic"
-	_ = consumer.SubscribeTopics([]string{"mb_ctopic"}, nil)
 
+	subscribe_topic := getEnv("KAFKA_SUBSCRIBE_TOPIC", "mb_ctopic")
+	subscribe_topics := []string{subscribe_topic}
+	_ = consumer.SubscribeTopics(subscribe_topics, nil)
+
+	produce_topic := getEnv("KAFKA_PRODUCER_TOPIC", "mobile_topic")
 	defer consumer.Close()
 	run := true
 
@@ -69,7 +80,7 @@ func main() {
 
 func retriveSchema(schemaKey SchemaKey) Schema.Schema {
 	dataIdstr := hex.EncodeToString(schemaKey.dataId)
-	hostname := "http://localhost:30002"
+	hostname := getEnv("IOT_SCHEMA_REGISTORY", "http://localhost:30002")
 	url := fmt.Sprintf("%s/registry/repo/%d/%s", hostname, schemaKey.dataIndex, dataIdstr)
 	fmt.Println(url)
 	resp, _ := http.Get(url)
