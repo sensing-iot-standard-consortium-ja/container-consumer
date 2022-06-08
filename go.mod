@@ -10,4 +10,4 @@ replace (
 	protoschema/Sensors/MPU6050Arrays => ./Sensors/MPU6050Arrays
 )
 
-require github.com/confluentinc/confluent-kafka-go v1.8.2 // indirect
+require github.com/confluentinc/confluent-kafka-go v1.8.2
