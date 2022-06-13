@@ -41,6 +41,7 @@ func main() {
 
 	// Consumerを作る
 	brokerEndpoint := getEnv("KAFKA_BROKER", "localhost:9092")
+	fmt.Println(brokerEndpoint)
 	consumer, _ := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers": brokerEndpoint,
 		"group.id":          "hoge",

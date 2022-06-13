@@ -1,0 +1,5 @@
+# this file for build
+services:
+  app:
+    image: 501480641708.dkr.ecr.ap-northeast-1.amazonaws.com/iot_container_consumer:0.0.1
+    build: .
