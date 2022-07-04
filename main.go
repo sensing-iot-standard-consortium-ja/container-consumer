@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -51,11 +52,11 @@ func main() {
 		"bootstrap.servers": brokerEndpoint,
 	})
 
-	subscribe_topic := getEnv("KAFKA_SUBSCRIBE_TOPIC", "mb_ctopic")
-	subscribe_topics := []string{subscribe_topic}
+	subscribe_topic_data := getEnv("KAFKA_SUBSCRIBE_TOPIC", "mb_ctopic")
+	subscribe_topics := strings.Split(subscribe_topic_data, ",")
 	_ = consumer.SubscribeTopics(subscribe_topics, nil)
 
-	produce_topic_prefix := getEnv("KAFKA_PRODUCER_TOPIC_PREFIX", "con")
+	produce_topic_prefix := getEnv("KAFKA_PRODUCER_TOPIC_PREFIX", "jsondev_")
 	defer consumer.Close()
 	run := true
 

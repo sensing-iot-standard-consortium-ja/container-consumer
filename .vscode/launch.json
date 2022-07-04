@@ -9,7 +9,10 @@
             "type": "go",
             "request": "launch",
             "mode": "debug",
-            "program": "${file}"
+            "program": "${file}",
+            "env": {
+                "KAFKA_SUBSCRIBE_TOPIC": "omron,mb_ctopic"
+            }
         },
         {
             "name": "Launch test function",
