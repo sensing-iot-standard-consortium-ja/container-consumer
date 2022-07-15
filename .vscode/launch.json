@@ -11,7 +11,9 @@
             "mode": "debug",
             "program": "${file}",
             "env": {
-                "KAFKA_SUBSCRIBE_TOPIC": "omron,mb_ctopic"
+                "KAFKA_SUBSCRIBE_TOPIC": "omron",
+                "KAFKA_BROKER": "websensor.iotbase.in:29092",
+                "IOT_SCHEMA_REGISTORY": "https://registry.iotbase.in/",
             }
         },
         {
