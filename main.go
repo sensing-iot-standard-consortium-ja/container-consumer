@@ -62,7 +62,7 @@ func main() {
 
 	schemaCache := sync.Map{}
 	for run == true {
-		ev := consumer.Poll(0)
+		ev := consumer.Poll(1)
 		switch e := ev.(type) {
 		case *kafka.Message:
 			jsonBytes := processContainer(e.Value, &schemaCache)
