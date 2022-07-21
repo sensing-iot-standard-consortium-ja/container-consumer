@@ -68,11 +68,12 @@ func main() {
 			jsonBytes := processContainer(e.Value, &schemaCache)
 			topic := fmt.Sprintf("%s_%s", produce_topic_prefix, *e.TopicPartition.Topic)
 			fmt.Printf("%s\t%x\n", topic, jsonBytes)
-			producer.Produce(&kafka.Message{
-				TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
-				Value:          jsonBytes,
-			}, nil)
-
+			if len(jsonBytes) > 0 {
+				producer.Produce(&kafka.Message{
+					TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
+					Value:          jsonBytes,
+				}, nil)
+			}
 		case kafka.Error:
 			fmt.Fprintf(os.Stderr, "%% Error: %v\n", e)
 			run = false
