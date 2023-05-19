@@ -1,7 +1,7 @@
 FROM golang:1.18.2-buster as BUILDENV
 COPY . /app
 WORKDIR /app
-RUN go build
+RUN go build -buildvcs=false
 
 FROM golang:1.18.2-buster
 COPY --from=BUILDENV /app/protoschema /protoschema
