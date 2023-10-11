@@ -1,5 +1,0 @@
-# this file for build
-services:
-  app:
-    image: public.ecr.aws/l1b7e4q9/iot_container_consumer:0.0.3
-    build: .
